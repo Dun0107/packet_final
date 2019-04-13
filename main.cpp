@@ -83,7 +83,7 @@ int main(int argc,char **argv){
         }
         //eth_res = 0x0800 -> ip right
 
-        data += 14;
+        data += sizeof(ether_header);
 
         int pro_res = print_ip_header(data);
         printf("%d", pro_res);
