@@ -2,26 +2,31 @@
 #include <pcap.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 
-using namespace std;
 
+#pragma pack(push, 1)
 struct ether_add
 {
     unsigned char mac_add[6];
 };
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 struct ether_header
 {
-    struct ether_add src_mac;
     struct ether_add des_mac;
+    struct ether_add src_mac;
     unsigned short eth_type;
     //14bytes
 };
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 struct ip_header
 {
-    unsigned char ip_version : 4;
     unsigned char ip_header_length : 4;
+    unsigned char ip_version : 4;
     unsigned char ip_TOS;
     unsigned short ip_total_length;
     unsigned short ip_iden;
@@ -37,29 +42,9 @@ struct ip_header
     struct in_addr ip_des_add;
     //20bytes
 };
+#pragma pack(pop)
 
-struct tcp_header
-{
-    unsigned short src_port;
-    unsigned short des_port;
-    unsigned long sqn_num;
-    unsigned long ack_num;
-    unsigned char offset : 4;
-    unsigned char ns : 1;
-    unsigned char reserve : 3;
-    unsigned char flag_cwr : 1;
-    unsigned char flag_ece : 1;
-    unsigned char flag_urgent : 1;
-    unsigned char flag_ack : 1;
-    unsigned char flag_push : 1;
-    unsigned char flag_reset : 1;
-    unsigned char flag_syn : 1;
-    unsigned char flag_fin : 1;
-    unsigned short window;
-    unsigned short chk_sum;
-    unsigned short urgent_point;
-    //20bytes
-};
+int http_length;
 
 int print_eth_header(const unsigned char *data);
 int print_ip_header(const unsigned char *data);
@@ -107,11 +92,16 @@ int main(int argc,char **argv){
         }
         //protocol = 06 -> tcp right
 
-        data += 20;
+        struct ip_header *ih;
+        ih = (struct ip_header *)data;
+        data += ih->ip_header_length *4;
+
+        struct tcphdr *th;
+        th = (struct tcphdr *)data;
         print_tcp_header(data);
-        data += 20;
+        data += th->th_off*4;
+
         print_http_header(data);
-        data += 20;
 
     }
 }
@@ -119,13 +109,7 @@ int main(int argc,char **argv){
 int print_eth_header(const unsigned char *data){
     struct ether_header *eh;
     eh = (struct ether_header *)data;
-    unsigned short ether_type = ntohs(eh->eth_type);
-    if (ether_type != 0x0800)
-        {
-           /* printf("******%X**********",ether_type); */
-            printf("IP is wrong!\n");
-            return 0;
-        }
+
     printf("\n");
     printf("\n===========MAC ADDRESS===========\n");
     printf("Src MAC : ");
@@ -133,6 +117,16 @@ int print_eth_header(const unsigned char *data){
     printf("\nDes MAC : ");
     for (int i = 0; i <= 5; i++)printf("%02x ", eh->des_mac.mac_add[i]);
     printf("\n");
+
+
+    unsigned short ether_type = ntohs(eh->eth_type);
+
+    if (ether_type != 0x0800)
+        {
+           /* printf("******%X**********",ether_type); */
+            printf("IP is wrong!\n");
+            return 0;
+        }
     return 1;
 }
 
@@ -140,37 +134,50 @@ int print_ip_header(const unsigned char *data)
 {
     struct ip_header *ih;
     ih = (struct ip_header *)data;
-    if (ih->ip_protocol != 0x06)
-       {
-           printf("TCP is wrong!\n");
-           return 0;
-       }
+
         printf("\n===========IP ADDRESS===========\n");
         printf("Src IP : %s\n",inet_ntoa(ih->ip_src_add));
         printf("Des IP : %s\n", inet_ntoa(ih->ip_des_add));
+        printf("IP length: %d\n", (ih->ip_header_length *4));
+        printf("IP total length: %d\n", ntohs(ih->ip_total_length));
         printf("\n");
+
+        http_length = ntohs(ih->ip_total_length) - (ih->ip_header_length*4);
+
+        if (ih->ip_protocol != 0x06)
+           {
+               printf("TCP is wrong!\n");
+               return 0;
+           }
 
         return 1;
 }
 
 void print_tcp_header(const unsigned char *data)
 {
-    struct tcp_header *th;
-    th = (struct tcp_header *)data;
+    struct tcphdr *th;
+    th = (struct tcphdr *)data;
     printf("\n==============PORT===============\n");
-    printf("Src Port : %d\n", ntohs(th->src_port));
-    printf("Des Port : %d\n", ntohs(th->des_port));
+    printf("Src Port : %d\n", ntohs(th->source));
+    printf("Des Port : %d\n", ntohs(th->dest));
+    printf("tcp length : %d\n", th->th_off *4);
+    http_length = http_length - (th->th_off*4);
 }
 
 void print_http_header(const unsigned char *data)
 {
     printf("\n============HTTP DATA============\n");
+    printf("http_length: %d\n", http_length);
     int i;
-    for(i=0; i<=16; i++){
-        printf("%c", data[i]);
+    if (http_length >= 16){
+        for(i=0; i<=16; i++){
+           printf("%c", data[i]);
+       }
+    }
+    if (http_length < 16){
+        for (i=0; i<=http_length; i++){
+            printf("%c", data[i]);
+        }
     }
 }
-//    struct ip_header *ih;
-//    data = (ih->ip_total_length)*4 - (ih->ip_header_length)*4;
-//}
 
