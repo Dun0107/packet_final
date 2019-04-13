@@ -66,7 +66,6 @@ int main(int argc,char **argv){
         const u_char *data;
 
         int res = pcap_next_ex(handle,&header,&data);
-        printf("%d",res);
 
         if(res == 0){
             continue;
@@ -77,7 +76,6 @@ int main(int argc,char **argv){
 
         int eth_res = print_eth_header(data);
 
-        printf("%d", eth_res);
         if (eth_res == 0){
             continue;
         }
@@ -86,7 +84,7 @@ int main(int argc,char **argv){
         data += sizeof(ether_header);
 
         int pro_res = print_ip_header(data);
-        printf("%d", pro_res);
+
         if (pro_res == 0){
             continue;
         }
