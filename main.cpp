@@ -10,9 +10,7 @@ struct ether_add
 {
     unsigned char mac_add[6];
 };
-#pragma pack(pop)
 
-#pragma pack(push, 1)
 struct ether_header
 {
     struct ether_add des_mac;
@@ -20,9 +18,7 @@ struct ether_header
     unsigned short eth_type;
     //14bytes
 };
-#pragma pack(pop)
 
-#pragma pack(push, 1)
 struct ip_header
 {
     unsigned char ip_header_length : 4;
